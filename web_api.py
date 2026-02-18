@@ -90,7 +90,8 @@ def query():
     Request body:
     {
         "query": "Is diabetes covered at Apollo Bangalore?",
-        "customer_id": "CUST0001"  # Optional
+        "customer_id": "CUST0001",  # Optional
+        "session_id": "session_abc123"  # Optional, for conversation memory
     }
     """
     try:
@@ -100,6 +101,7 @@ def query():
         
         user_query = (request.json.get('query') or '').strip()
         customer_id = (request.json.get('customer_id') or '').strip() or None
+        session_id = (request.json.get('session_id') or '').strip() or None
         
         if not user_query:
             return jsonify({'error': 'Query is required'}), 400
@@ -109,13 +111,14 @@ def query():
             if not initialize_agent():
                 return jsonify({'error': 'Agent initialization failed'}), 503
         
-        # Process query
-        logger.info(f"Processing query: {user_query} (customer: {customer_id})")
-        response = agent.process_query(user_query, customer_id)
+        # Process query with session support
+        logger.info(f"Processing query: {user_query} (customer: {customer_id}, session: {session_id})")
+        response = agent.process_query(user_query, customer_id, session_id)
         
         return jsonify({
             'query': user_query,
             'customer_id': customer_id,
+            'session_id': session_id,
             'response': response,
             'timestamp': datetime.utcnow().isoformat()
         }), 200
@@ -213,6 +216,71 @@ def get_schema():
         logger.error(f"Error getting schema: {e}")
         return jsonify({
             'error': 'Failed to get schema',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/conversation/<session_id>', methods=['GET'])
+def get_conversation_history(session_id):
+    """
+    Get conversation history for a session
+    
+    Path parameters:
+        session_id: Session identifier
+        
+    Query parameters:
+        last_n: Number of recent messages to return (default: all)
+    """
+    try:
+        if agent is None or agent.memory is None:
+            return jsonify({
+                'error': 'Conversation memory not available',
+                'history': []
+            }), 200
+        
+        last_n = request.args.get('last_n', type=int)
+        history = agent.memory.get_history(session_id, last_n)
+        metadata = agent.memory.get_session_metadata(session_id)
+        
+        return jsonify({
+            'session_id': session_id,
+            'history': history,
+            'metadata': metadata,
+            'timestamp': datetime.utcnow().isoformat()
+        }), 200
+    
+    except Exception as e:
+        logger.error(f"Error getting conversation history: {e}")
+        return jsonify({
+            'error': 'Failed to get conversation history',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/conversation/<session_id>', methods=['DELETE'])
+def clear_conversation(session_id):
+    """Clear a conversation session"""
+    try:
+        if agent is None or agent.memory is None:
+            return jsonify({'error': 'Conversation memory not available'}), 503
+        
+        success = agent.memory.clear_session(session_id)
+        
+        if success:
+            return jsonify({
+                'message': f'Session {session_id} cleared successfully',
+                'timestamp': datetime.utcnow().isoformat()
+            }), 200
+        else:
+            return jsonify({
+                'error': 'Session not found',
+                'session_id': session_id
+            }), 404
+    
+    except Exception as e:
+        logger.error(f"Error clearing conversation: {e}")
+        return jsonify({
+            'error': 'Failed to clear conversation',
             'message': str(e)
         }), 500
 

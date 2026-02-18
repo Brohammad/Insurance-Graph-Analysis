@@ -2,7 +2,7 @@
 MedAssist Agentic Layer - LangGraph StateGraph Implementation
 Uses LangGraph for orchestrating multi-agent workflow with Neo4j Knowledge Graph
 """
-from typing import TypedDict, Annotated, Sequence
+from typing import TypedDict, Annotated, Sequence, Optional
 import operator
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
@@ -23,6 +23,14 @@ try:
 except ImportError:
     VECTOR_STORE_AVAILABLE = False
     logging.warning("Vector store not available. Install chromadb, pypdf, and sentence-transformers for RAG functionality.")
+
+# Import conversation memory (Phase 3.3)
+try:
+    from conversation_memory import ConversationMemory
+    CONVERSATION_MEMORY_AVAILABLE = True
+except ImportError:
+    CONVERSATION_MEMORY_AVAILABLE = False
+    logging.warning("Conversation memory not available.")
 
 init(autoreset=True)
 
@@ -48,7 +56,7 @@ class AgentState(TypedDict):
 class MedAssistAgent:
     """LangGraph-based agentic workflow for healthcare insurance queries"""
     
-    def __init__(self, enable_vector_store: bool = True):
+    def __init__(self, enable_vector_store: bool = True, enable_memory: bool = True):
         self.connector = None
         self.llm = ChatGoogleGenerativeAI(
             model=LLM_MODEL,
@@ -65,6 +73,17 @@ class MedAssistAgent:
                 print(f"{Fore.GREEN}✓ Vector store initialized for policy RAG")
             except Exception as e:
                 print(f"{Fore.YELLOW}⚠ Vector store initialization failed: {e}")
+                self.vector_store = None
+        
+        # Initialize conversation memory (Phase 3.3)
+        self.memory = None
+        if enable_memory and CONVERSATION_MEMORY_AVAILABLE:
+            try:
+                self.memory = ConversationMemory(max_history=10, ttl_minutes=60)
+                print(f"{Fore.GREEN}✓ Conversation memory initialized")
+            except Exception as e:
+                print(f"{Fore.YELLOW}⚠ Conversation memory initialization failed: {e}")
+                self.memory = None
                 self.vector_store = None
         
         self.workflow = self._build_workflow()
@@ -528,8 +547,25 @@ Please let me know how you'd like to proceed."""
     
     # ========== PUBLIC API ==========
     
-    def process_query(self, user_query: str, customer_id: str = None) -> str:
-        """Process a user query through the agent workflow"""
+    def process_query(self, user_query: str, customer_id: Optional[str] = None, session_id: Optional[str] = None) -> str:
+        """
+        Process a user query through the agent workflow
+        
+        Args:
+            user_query: The user's question
+            customer_id: Optional customer ID
+            session_id: Optional session ID for conversation memory
+            
+        Returns:
+            Agent's response
+        """
+        # Get conversation context if session_id provided
+        conversation_context = ""
+        if session_id and self.memory:
+            conversation_context = self.memory.get_context_string(session_id, last_n=4)
+            if conversation_context:
+                print(f"{Fore.CYAN}[Memory] Retrieved conversation context ({session_id})")
+        
         initial_state = {
             "messages": [],
             "user_query": user_query,
@@ -551,12 +587,26 @@ Please let me know how you'd like to proceed."""
         print(f"{Fore.CYAN}{'='*70}\n")
         
         final_state = self.workflow.invoke(initial_state)
+        response = final_state["final_response"]
+        
+        # Store in conversation memory if session_id provided
+        if session_id and self.memory:
+            # Create session if it doesn't exist
+            if session_id not in self.memory.get_active_sessions():
+                self.memory.create_session(session_id, customer_id)
+            
+            # Add messages to history
+            self.memory.add_message(session_id, "user", user_query, 
+                                   metadata={'intent': final_state.get('intent'),
+                                           'confidence': final_state.get('confidence')})
+            self.memory.add_message(session_id, "assistant", response)
+            print(f"{Fore.CYAN}[Memory] Saved to conversation history")
         
         print(f"\n{Fore.GREEN}{'='*70}")
         print(f"{Fore.GREEN}Query Processed Successfully")
         print(f"{Fore.GREEN}{'='*70}\n")
         
-        return final_state["final_response"]
+        return response
 
 
 def main():

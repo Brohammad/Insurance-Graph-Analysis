@@ -346,6 +346,14 @@
         const chatContainer = document.getElementById('chat-container');
         const userInput = document.getElementById('user-input');
         const sendBtn = document.getElementById('send-btn');
+        
+        // Generate or retrieve session ID
+        let sessionId = sessionStorage.getItem('medassist_session_id');
+        if (!sessionId) {
+            sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            sessionStorage.setItem('medassist_session_id', sessionId);
+        }
+        console.log('Session ID:', sessionId);
 
         // Load stats on page load
         loadStats();
@@ -385,7 +393,8 @@
                     },
                     body: JSON.stringify({
                         query: query,
-                        customer_id: customerId || null
+                        customer_id: customerId || null,
+                        session_id: sessionId  // Include session ID for conversation memory
                     })
                 });
 
