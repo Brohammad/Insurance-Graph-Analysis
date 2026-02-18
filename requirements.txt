@@ -19,3 +19,7 @@ numpy>=1.24.0
 pydantic>=2.0.0
 colorama>=0.4.6
 rich>=13.0.0
+
+# Web API dependencies
+flask>=3.0.0
+flask-cors>=4.0.0
