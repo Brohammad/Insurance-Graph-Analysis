@@ -14,6 +14,15 @@ from config import GOOGLE_API_KEY, LLM_MODEL, LLM_TEMPERATURE, CONFIDENCE_THRESH
 from colorama import Fore, Style, init
 import json
 import re
+import logging
+
+# Import ChromaDB vector store (Phase 3.2)
+try:
+    from vector_store import PolicyVectorStore
+    VECTOR_STORE_AVAILABLE = True
+except ImportError:
+    VECTOR_STORE_AVAILABLE = False
+    logging.warning("Vector store not available. Install chromadb, pypdf, and sentence-transformers for RAG functionality.")
 
 init(autoreset=True)
 
@@ -39,7 +48,7 @@ class AgentState(TypedDict):
 class MedAssistAgent:
     """LangGraph-based agentic workflow for healthcare insurance queries"""
     
-    def __init__(self):
+    def __init__(self, enable_vector_store: bool = True):
         self.connector = None
         self.llm = ChatGoogleGenerativeAI(
             model=LLM_MODEL,
@@ -47,6 +56,17 @@ class MedAssistAgent:
             temperature=LLM_TEMPERATURE
         )
         self.schema_info = get_schema_info()
+        
+        # Initialize vector store for RAG (Phase 3.2)
+        self.vector_store = None
+        if enable_vector_store and VECTOR_STORE_AVAILABLE:
+            try:
+                self.vector_store = PolicyVectorStore()
+                print(f"{Fore.GREEN}✓ Vector store initialized for policy RAG")
+            except Exception as e:
+                print(f"{Fore.YELLOW}⚠ Vector store initialization failed: {e}")
+                self.vector_store = None
+        
         self.workflow = self._build_workflow()
     
     def connect(self):
@@ -339,11 +359,47 @@ Generate response:"""
         return state
     
     def rag_fallback_node(self, state: AgentState) -> AgentState:
-        """Handle queries that don't fit structured KG queries"""
+        """Handle queries that don't fit structured KG queries using RAG"""
         print(f"{Fore.CYAN}[RAG Fallback] Handling general question...")
         
         user_query = state["user_query"]
         
+        # Try vector store RAG first if available
+        if self.vector_store:
+            try:
+                print(f"{Fore.CYAN}[RAG] Searching policy documents...")
+                results = self.vector_store.search(user_query, n_results=3)
+                
+                if results:
+                    # Build context from retrieved documents
+                    context = "\n\n".join([
+                        f"From {result['metadata'].get('filename', 'policy document')}:\n{result['document']}"
+                        for result in results
+                    ])
+                    
+                    print(f"{Fore.GREEN}[RAG] Found {len(results)} relevant policy sections")
+                    
+                    # Generate response with context
+                    prompt = f"""You are a healthcare insurance assistant with access to policy documents.
+Answer the following question using the policy information provided below.
+
+Policy Context:
+{context}
+
+Question: "{user_query}"
+
+Provide a clear, accurate answer based on the policy information above. If the context doesn't contain 
+enough information to answer completely, say so and provide what information you can."""
+                    
+                    response = self.llm.invoke([HumanMessage(content=prompt)])
+                    state["final_response"] = response.content.strip()
+                    print(f"{Fore.GREEN}[RAG Fallback] Response generated from policy documents")
+                    return state
+                    
+            except Exception as e:
+                print(f"{Fore.YELLOW}[RAG] Vector store error: {e}, falling back to general knowledge")
+        
+        # Fallback to general knowledge if vector store unavailable or no results
         prompt = f"""You are a knowledgeable healthcare insurance assistant.
 Answer the following question based on general healthcare insurance knowledge.
 
@@ -356,7 +412,7 @@ Provide a helpful, accurate response:"""
         try:
             response = self.llm.invoke([HumanMessage(content=prompt)])
             state["final_response"] = response.content.strip()
-            print(f"{Fore.GREEN}[RAG Fallback] Response generated")
+            print(f"{Fore.GREEN}[RAG Fallback] Response generated from general knowledge")
         
         except Exception as e:
             print(f"{Fore.RED}[RAG Fallback] Error: {e}")
@@ -392,10 +448,13 @@ Please let me know how you'd like to proceed."""
             print(f"{Fore.YELLOW}[Router] Low confidence, routing to RAG fallback")
             return "rag_fallback"
         
-        if intent in ["general_question", "greeting"]:
+        # General questions and policy queries don't need customer ID - route to RAG
+        if intent in ["general_question", "greeting", "policy_utilization", "coverage_check"]:
+            print(f"{Fore.CYAN}[Router] General/policy question, routing to RAG")
             return "rag_fallback"
         
-        if not state.get("customer_id") and intent not in ["general_question", "greeting"]:
+        # Customer-specific queries need customer ID
+        if not state.get("customer_id") and intent not in ["general_question", "greeting", "policy_utilization", "coverage_check"]:
             print(f"{Fore.YELLOW}[Router] Customer ID required, routing to escalation")
             return "escalation"
         

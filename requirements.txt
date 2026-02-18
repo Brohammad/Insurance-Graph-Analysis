@@ -23,3 +23,8 @@ rich>=13.0.0
 # Web API dependencies
 flask>=3.0.0
 flask-cors>=4.0.0
+
+# Vector Store dependencies (Phase 3.2)
+chromadb>=1.5.0
+pypdf>=6.0.0
+sentence-transformers>=5.0.0

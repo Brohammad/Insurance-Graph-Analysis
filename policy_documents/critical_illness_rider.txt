@@ -1,0 +1,284 @@
+CRITICAL ILLNESS RIDER
+Rider Code: CIR-2025
+Attached to Policy: POL001, POL002, POL003, POL004, POL005
+
+==================================================
+OVERVIEW
+==================================================
+
+This Critical Illness Rider provides lump-sum payment upon diagnosis of specified 
+critical illnesses. The benefit is paid in addition to your base health insurance 
+policy and can be used for treatment, recovery, or any other purpose.
+
+COVERAGE AMOUNT: ₹5,00,000 (Five Lakhs)
+ONE-TIME LUMP SUM PAYMENT upon first diagnosis
+WAITING PERIOD: 90 days from rider inception
+PRE-EXISTING DISEASE WAITING: 4 years
+
+==================================================
+COVERED CRITICAL ILLNESSES
+==================================================
+
+This rider covers the following 25 critical illnesses:
+
+1. CANCER (ALL TYPES)
+   - All malignant cancers requiring chemotherapy, radiation, or surgery
+   - Includes leukemia, lymphoma, and solid tumors
+   - Early stage cancers covered at 25% of sum assured
+   - Advanced stage cancers: Full sum assured
+
+2. HEART ATTACK (MYOCARDIAL INFARCTION)
+   - First heart attack with specified cardiac enzyme elevation
+   - ECG changes confirming heart attack
+   - Requires hospitalization for minimum 3 days
+
+3. CORONARY ARTERY BYPASS SURGERY
+   - Open chest surgery to correct narrowing of coronary arteries
+   - Minimum 2 grafts required
+   - Angioplasty not covered under this (covered in base policy)
+
+4. STROKE
+   - Cerebrovascular accident resulting in permanent neurological deficit
+   - Must persist for at least 30 days after incident
+   - Includes ischemic and hemorrhagic stroke
+   - TIA (Transient Ischemic Attack) not covered
+
+5. KIDNEY FAILURE
+   - End-stage renal disease requiring regular dialysis
+   - Chronic irreversible failure of both kidneys
+   - Requires dialysis for minimum 3 months
+
+6. MAJOR ORGAN TRANSPLANT
+   - Heart, liver, kidney, pancreas, or bone marrow transplant
+   - As recipient only (not as donor)
+   - Must be medically necessary
+
+7. BLINDNESS (PERMANENT & IRREVERSIBLE)
+   - Total and permanent loss of vision in both eyes
+   - Corrected visual acuity less than 3/60
+   - Certified by ophthalmologist
+
+8. PARALYSIS
+   - Total and permanent loss of use of two or more limbs
+   - Lasting for continuous period of at least 6 months
+   - Includes paraplegia, quadriplegia, hemiplegia
+
+9. MULTIPLE SCLEROSIS
+   - Definite diagnosis with multiple episodes
+   - Permanent neurological deficit
+   - Confirmed by MRI and neurologist
+
+10. ALZHEIMER'S DISEASE / DEMENTIA
+    - Permanent deterioration of mental capacity
+    - Before age 65
+    - Requires continuous supervision
+
+11. PARKINSON'S DISEASE
+    - Definitive diagnosis with progressive symptoms
+    - Impaired motor function requiring continuous medication
+    - Permanent and irreversible
+
+12. COMA
+    - State of unconsciousness lasting minimum 96 hours
+    - Requires life support
+    - With permanent neurological deficit
+
+13. MAJOR BURNS
+    - Third-degree burns covering at least 20% of body surface
+    - Requires skin grafting
+
+14. BACTERIAL MENINGITIS
+    - Inflammation of brain/spinal cord membranes
+    - Results in permanent neurological deficits
+    - Confirmed by spinal tap
+
+15. BENIGN BRAIN TUMOR
+    - Non-malignant tumor requiring surgical removal
+    - Causes permanent neurological damage
+
+16. AORTIC SURGERY
+    - Surgery to repair or correct aorta defect
+    - Requires open chest or open abdomen surgery
+
+17. APLASTIC ANEMIA
+    - Chronic persistent bone marrow failure
+    - Requires blood transfusions and medication
+
+18. HEART VALVE SURGERY
+    - Open heart surgery to replace or repair heart valve
+    - Keyhole procedures not covered
+
+19. PRIMARY PULMONARY ARTERIAL HYPERTENSION
+    - Confirmed by right heart catheterization
+    - Requires permanent medication
+
+20. MOTOR NEURON DISEASE
+    - Including ALS (Lou Gehrig's disease)
+    - Progressive degeneration of motor nerves
+
+21. LOSS OF INDEPENDENT EXISTENCE
+    - Physical inability to perform 3 of 6 Activities of Daily Living
+    - Lasting for minimum 6 months
+    - ADLs: bathing, dressing, eating, toileting, mobility, continence
+
+22. LIVER FAILURE
+    - End-stage liver disease
+    - Requires liver transplant registration
+
+23. LUNG DISEASE
+    - End-stage lung disease requiring oxygen therapy
+    - FEV1 less than 40% predicted
+
+24. MUSCULAR DYSTROPHY
+    - Progressive degenerative disease of muscles
+    - Confirmed by biopsy and genetic testing
+
+25. SYSTEMIC LUPUS ERYTHEMATOSUS (SLE)
+    - With severe organ involvement
+    - Class III to V lupus nephritis
+
+==================================================
+CLAIM PAYMENT STRUCTURE
+==================================================
+
+FULL BENEFIT (100%):
+Paid for major critical illnesses like cancer (advanced), heart attack, stroke, 
+kidney failure, major organ transplant, paralysis.
+
+PARTIAL BENEFIT (25%):
+Paid for early-stage/minor conditions:
+- Early stage cancer (Stage 1)
+- Angioplasty (maximum 4 stents)
+- Early stage kidney disease (pre-dialysis)
+
+Note: After partial benefit payment, rider continues with reduced sum assured 
+(75% of original). If major critical illness diagnosed later, balance amount paid.
+
+==================================================
+EXCLUSIONS
+==================================================
+
+This rider does NOT cover:
+
+1. Pre-existing critical illnesses (within 4-year waiting period)
+2. Self-inflicted injuries
+3. Alcohol or drug abuse related conditions
+4. Participation in hazardous activities (adventure sports, racing)
+5. War, terrorism, nuclear radiation
+6. HIV/AIDS (unless acquired through blood transfusion)
+7. Genetic disorders diagnosed before policy inception
+8. Attempted suicide
+9. Illnesses arising within 90-day waiting period
+
+==================================================
+CLAIM PROCESS
+==================================================
+
+STEP 1: DIAGNOSIS
+Illness must be diagnosed by qualified specialist (oncologist, cardiologist, 
+neurologist, etc.) at recognized hospital.
+
+STEP 2: NOTIFICATION
+Inform insurance company within 30 days of diagnosis
+Call: 1800-XXX-XXXX or Email: criticalillness@healthinsurance.com
+
+STEP 3: DOCUMENTATION
+Submit the following:
+- Claim form (signed by policyholder and doctor)
+- Diagnosis reports and test results
+- Doctor's certificate detailing illness
+- Hospital records
+- Pathology/biopsy reports (if applicable)
+- Imaging reports (MRI, CT scan, PET scan)
+- Bank account details
+- Photo ID and policy document
+
+STEP 4: CLAIM ASSESSMENT
+- Insurance company reviews medical records
+- May request additional tests or second opinion
+- Independent medical examination if needed
+- Assessment completed within 30 days
+
+STEP 5: PAYMENT
+- If approved, lump sum paid directly to bank account
+- Payment within 7 days of approval
+- No restrictions on how funds are used
+
+==================================================
+SURVIVAL PERIOD
+==================================================
+
+For most critical illnesses, policyholder must survive at least 30 days from 
+date of diagnosis to receive benefit. This ensures illness is critical and 
+treatment is ongoing.
+
+Exceptions (no survival period):
+- Cancer (all stages)
+- Coma
+- Major burns
+
+==================================================
+PREMIUM AND RENEWAL
+==================================================
+
+RIDER PREMIUM: ₹3,500 per year (age-dependent)
+Premium increases by 5-10% every 5 years
+
+RENEWAL:
+- Guaranteed renewable up to age 65
+- Premium increases at renewal based on age band
+- No medical examination for renewal
+- If claim paid, rider terminates (one-time benefit)
+
+CANCELLATION:
+- Can be cancelled anytime (pro-rata refund)
+- Automatically terminates when base policy terminates
+- Terminates upon payment of full critical illness benefit
+
+==================================================
+TAX BENEFITS
+==================================================
+
+Premium paid for this rider is eligible for tax deduction under Section 80D 
+of Income Tax Act. Claim benefit received is tax-free under Section 10(10D).
+
+==================================================
+SPECIAL FEATURES
+==================================================
+
+SECOND OPINION SERVICE:
+Free second medical opinion from panel of specialists for critical illness diagnosis.
+
+HEALTH COACHING:
+Post-diagnosis health coaching and nutritionist consultation included.
+
+MENTAL HEALTH SUPPORT:
+Counseling sessions for policyholder and family (6 sessions) included after diagnosis.
+
+HOSPITAL COORDINATION:
+Assistance in finding top specialists and hospitals for treatment.
+
+==================================================
+IMPORTANT NOTES
+==================================================
+
+1. This is a benefit rider, not a standalone policy
+2. Requires active base health insurance policy
+3. Rider sum assured cannot exceed base policy sum assured
+4. Maximum sum assured under this rider: ₹10,00,000
+5. One claim only - rider terminates after claim payment
+6. Cannot be reinstated after claim
+7. All medical conditions must be disclosed at time of purchase
+8. Non-disclosure may result in claim rejection
+
+==================================================
+CONTACT INFORMATION
+==================================================
+
+Critical Illness Claims: 1800-XXX-XXXX
+Email: criticalillness@healthinsurance.com
+Claim Status: SMS CIR <Policy Number> to 56767
+Online Portal: www.healthinsurance.com/critical-illness
+
+For detailed terms and conditions, refer to the rider policy document.
+This is a summary document and does not constitute the complete policy terms.
