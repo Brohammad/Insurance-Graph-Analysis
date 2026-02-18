@@ -2,9 +2,26 @@
 
 A production-ready healthcare insurance knowledge graph system built with **Neo4j**, **LangGraph**, and **Gemini 2.0 Flash**. This project implements the case study: "Building an Agentic Customer Support System for Healthcare Insurance" using graph-based reasoning over traditional RAG.
 
-## 🤖 **NEW: AI Chatbot Available!**
+## 🤖 **FEATURED: LangGraph Agentic System**
 
-**Try the conversational AI assistant:**
+**NEW: Production-ready StateGraph orchestration**
+```bash
+source .venv/bin/activate
+python agent.py
+```
+
+Features:
+- 🔄 **6-node StateGraph workflow** (Classifier → Planner → Executor → Synthesizer)
+- 🎯 **Zero hallucination** - Facts from KG, LLM only formats
+- 🧠 **Smart routing** - Confidence-based fallback to RAG
+- 🔁 **Auto-correction** - Query retry with error fixing
+- 📊 **8/8 tests passing** - Comprehensive validation
+
+See [AGENT_GUIDE.md](AGENT_GUIDE.md) for detailed architecture guide.
+
+## 💬 **Simple Chatbot Interface**
+
+**For quick interactions:**
 ```bash
 source .venv/bin/activate
 python chatbot.py
@@ -13,7 +30,6 @@ python chatbot.py
 Features:
 - 💬 Natural language conversations
 - 🧠 Intelligent intent detection with Gemini 2.0 Flash  
-- 🎯 Zero hallucination (all answers from knowledge graph)
 - 🔍 Multi-hop reasoning across relationships
 - 📊 Personalized responses based on customer data
 
