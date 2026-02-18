@@ -217,6 +217,7 @@ def health_check():
 @app.route('/api/query', methods=['POST'])
 @rate_limit
 @validate_input
+@require_auth  # Add authentication requirement
 def query():
     """
     Process a natural language query through the agent
@@ -228,7 +229,11 @@ def query():
         "session_id": "session_abc123"  # Optional, for conversation memory
     }
     
-    Security: Rate limited, input validated
+    Headers:
+    - Authorization: Bearer <jwt_token>
+    - OR X-API-Key: <api_key>
+    
+    Security: Authenticated, rate limited, input validated
     """
     try:
         # Validate request
@@ -243,6 +248,9 @@ def query():
         if not user_query:
             return jsonify({'error': 'Query is required'}), 400
         
+        # Get authenticated user from decorator
+        authenticated_user = getattr(g, 'user_id', None)
+        
         # Generate session_id if not provided
         if not session_id:
             session_id = f"session_{uuid.uuid4().hex[:16]}"
@@ -253,7 +261,7 @@ def query():
                 return jsonify({'error': 'Agent initialization failed'}), 503
         
         # Process query with session support
-        logger.info(f"Processing query: {user_query[:50]}... (customer: {customer_id}, session: {session_id})")
+        logger.info(f"Processing query: {user_query[:50]}... (user: {authenticated_user}, customer: {customer_id}, session: {session_id})")
         response = agent.process_query(user_query, customer_id, session_id)
         
         return jsonify({
@@ -261,6 +269,7 @@ def query():
             'customer_id': customer_id,
             'session_id': session_id,
             'response': response,
+            'authenticated_user': authenticated_user,
             'timestamp': datetime.utcnow().isoformat()
         }), 200
     
