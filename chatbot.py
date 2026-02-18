@@ -86,7 +86,8 @@ Respond ONLY with valid JSON in this format:
         "hospital_name": "extracted hospital name or null",
         "hospital_id": "HOSP0001 or null",
         "medication_name": "extracted medication name or null",
-        "city": "extracted city or null"
+        "city": "extracted city or null",
+        "min_discount": "minimum discount percentage as integer or null"
     }},
     "requires_customer_id": true|false
 }}
@@ -94,6 +95,7 @@ Respond ONLY with valid JSON in this format:
 Examples:
 - "Is diabetes covered at Apollo Bangalore?" → {{"intent": "coverage_check", "parameters": {{"treatment_name": "diabetes", "hospital_name": "Apollo Bangalore"}}}}
 - "Show me hospitals in Mumbai" → {{"intent": "hospital_finder", "parameters": {{"city": "Mumbai"}}}}
+- "Which hospitals in Bangalore have discount greater than 10%" → {{"intent": "hospital_finder", "parameters": {{"city": "Bangalore", "min_discount": 10}}}}
 - "What's my claim history?" → {{"intent": "claim_history", "requires_customer_id": true}}
 """
         
@@ -161,11 +163,35 @@ Examples:
         
         elif intent == "hospital_finder":
             city = parameters.get('city')
+            min_discount = parameters.get('min_discount')
+            
             if customer_id:
-                query = QueryBuilder.find_network_hospitals(customer_id, city)
+                # Build custom query with filters
+                query = f"""
+                MATCH (c:Customer {{id: $customer_id}})-[:HAS_POLICY]->(p:Policy)-[net:IN_NETWORK]->(h:Hospital)
+                WHERE net.cashless_eligible = true
+                """
                 params = {'customer_id': customer_id}
+                
+                # Add city filter
                 if city:
+                    query += " AND toLower(h.city) = toLower($city)"
                     params['city'] = city
+                
+                # Add discount filter
+                if min_discount:
+                    query += " AND net.discount_pct >= $min_discount"
+                    params['min_discount'] = int(min_discount)
+                
+                query += """
+                RETURN h.name as hospital_name,
+                       h.city as city,
+                       h.tier as tier,
+                       h.specialties as specialties,
+                       net.discount_pct as discount
+                ORDER BY net.discount_pct DESC, h.tier, h.name
+                """
+                
                 return query, params
         
         elif intent == "claim_history":

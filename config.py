@@ -17,7 +17,7 @@ NEO4J_DATABASE = os.getenv("NEO4J_DATABASE", "neo4j")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # LLM Configuration
-LLM_MODEL = "gemini-2.0-flash-exp"
+LLM_MODEL = "gemini-2.0-flash"
 LLM_TEMPERATURE = 0.1
 LLM_MAX_TOKENS = 2048
 

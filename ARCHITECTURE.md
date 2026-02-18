@@ -271,10 +271,13 @@ Phase 1: Knowledge Graph Foundation ✅ COMPLETE
 ├─ Cypher query library                ✅
 ├─ Multi-hop queries (8 tests)         ✅
 ├─ Interactive CLI                     ✅
+├─ AI Chatbot (Gemini integration)     ✅
+├─ Intent classification               ✅
+├─ Natural language interface          ✅
 └─ Documentation                       ✅
 
-Phase 2: Agentic Layer 🔮 NEXT
-├─ Text-to-Cypher agent                ☐
+Phase 2: Agentic Layer with LangGraph � IN PROGRESS
+├─ Text-to-Cypher agent                🔄
 ├─ LangGraph StateGraph                ☐
 │  ├─ Classifier node                  ☐
 │  ├─ Query Planner node               ☐
@@ -285,6 +288,13 @@ Phase 2: Agentic Layer 🔮 NEXT
 ├─ Confidence scoring                  ☐
 ├─ Query auto-correction               ☐
 └─ Feedback loop                       ☐
+
+Phase 3: Production Enhancements 🔮 PLANNED
+├─ Web interface (Flask/FastAPI)       ☐
+├─ ChromaDB for policy documents       ☐
+├─ Multi-turn conversation memory      ☐
+├─ Deployment setup                    ☐
+└─ Monitoring & logging                ☐
 ```
 
 ## 📊 Performance Comparison
