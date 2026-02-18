@@ -1,22 +1,43 @@
 """
 MedAssist Web API - Flask REST API for Healthcare Insurance Agent
-Provides HTTP endpoints for the LangGraph agent
+Provides HTTP endpoints for the LangGraph agent with security features
 """
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, g
 from flask_cors import CORS
 from agent import MedAssistAgent
 from neo4j_connector import Neo4jConnector
+from security import (
+    security_manager, 
+    require_auth, 
+    require_api_key, 
+    validate_input,
+    add_security_headers,
+    rate_limit
+)
+from config import config
 import os
 import logging
 from datetime import datetime
+import uuid
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=getattr(logging, config.LOG_LEVEL),
+    format=config.LOG_FORMAT
+)
 logger = logging.getLogger(__name__)
 
 # Initialize Flask app
 app = Flask(__name__, static_folder='static')
-CORS(app)  # Enable CORS for all routes
+
+# Configure CORS with security settings
+cors_config = {
+    'origins': config.CORS_ORIGINS if config.CORS_ORIGINS != ['*'] else '*',
+    'methods': ['GET', 'POST', 'OPTIONS'],
+    'allow_headers': ['Content-Type', 'Authorization', 'X-API-Key'],
+    'max_age': 3600
+}
+CORS(app, **cors_config)
 
 # Global agent instance
 agent = None
@@ -27,7 +48,14 @@ def initialize_agent():
     """Initialize the agent and database connection"""
     global agent, connector
     try:
-        agent = MedAssistAgent()
+        # Enable vector store and memory in production
+        enable_vector = config.ENVIRONMENT in ['production', 'development']
+        enable_memory = config.ENVIRONMENT in ['production', 'development']
+        
+        agent = MedAssistAgent(
+            enable_vector_store=enable_vector,
+            enable_memory=enable_memory
+        )
         if agent.connect():
             logger.info("✓ Agent connected to Neo4j")
             return True
@@ -44,6 +72,110 @@ with app.app_context():
     if not initialize_agent():
         logger.warning("⚠ Agent initialization failed, will retry on first request")
 
+
+# Apply security headers to all responses
+@app.after_request
+def apply_security_headers_middleware(response):
+    """Add security headers to all responses"""
+    return add_security_headers(response)
+
+
+# ============================================================================
+# AUTHENTICATION ENDPOINTS
+# ============================================================================
+
+@app.route('/auth/token', methods=['POST'])
+@rate_limit
+def get_token():
+    """
+    Generate a JWT token for authentication.
+    
+    Request body:
+    {
+        "user_id": "user123",
+        "api_key": "ma_xxxx..."  # Optional: API key for validation
+    }
+    
+    Response:
+    {
+        "token": "eyJ...",
+        "expires_in": 86400
+    }
+    """
+    try:
+        if not request.json:
+            return jsonify({'error': 'Request must be JSON'}), 400
+        
+        user_id = request.json.get('user_id')
+        if not user_id:
+            return jsonify({'error': 'user_id is required'}), 400
+        
+        # Sanitize user_id
+        user_id = security_manager.sanitize_input(user_id, max_length=100)
+        
+        # Generate token
+        token = security_manager.generate_token(user_id)
+        
+        return jsonify({
+            'token': token,
+            'expires_in': config.JWT_EXPIRATION_HOURS * 3600,
+            'token_type': 'Bearer'
+        }), 200
+    
+    except Exception as e:
+        logger.error(f"Error generating token: {e}")
+        return jsonify({'error': 'Token generation failed'}), 500
+
+
+@app.route('/auth/api-key', methods=['POST'])
+@rate_limit
+def generate_api_key():
+    """
+    Generate a new API key.
+    
+    Request body:
+    {
+        "user_id": "user123"
+    }
+    
+    Response:
+    {
+        "api_key": "ma_xxxx...",
+        "message": "Store this securely, it won't be shown again"
+    }
+    """
+    try:
+        if not request.json:
+            return jsonify({'error': 'Request must be JSON'}), 400
+        
+        user_id = request.json.get('user_id')
+        if not user_id:
+            return jsonify({'error': 'user_id is required'}), 400
+        
+        # Sanitize user_id
+        user_id = security_manager.sanitize_input(user_id, max_length=100)
+        
+        # Generate API key
+        api_key = security_manager.generate_api_key(user_id)
+        
+        # TODO: Store hashed API key in database
+        # api_key_hash = security_manager.hash_api_key(api_key)
+        # store_api_key_in_db(user_id, api_key_hash)
+        
+        return jsonify({
+            'api_key': api_key,
+            'user_id': user_id,
+            'message': 'Store this API key securely. It will not be shown again.'
+        }), 201
+    
+    except Exception as e:
+        logger.error(f"Error generating API key: {e}")
+        return jsonify({'error': 'API key generation failed'}), 500
+
+
+# ============================================================================
+# PUBLIC ENDPOINTS
+# ============================================================================
 
 @app.route('/')
 def index():
@@ -83,6 +215,8 @@ def health_check():
 
 
 @app.route('/api/query', methods=['POST'])
+@rate_limit
+@validate_input
 def query():
     """
     Process a natural language query through the agent
@@ -93,12 +227,15 @@ def query():
         "customer_id": "CUST0001",  # Optional
         "session_id": "session_abc123"  # Optional, for conversation memory
     }
+    
+    Security: Rate limited, input validated
     """
     try:
         # Validate request
         if not request.json:
             return jsonify({'error': 'Request must be JSON'}), 400
         
+        # Get validated and sanitized inputs (already done by @validate_input)
         user_query = (request.json.get('query') or '').strip()
         customer_id = (request.json.get('customer_id') or '').strip() or None
         session_id = (request.json.get('session_id') or '').strip() or None
@@ -106,13 +243,17 @@ def query():
         if not user_query:
             return jsonify({'error': 'Query is required'}), 400
         
+        # Generate session_id if not provided
+        if not session_id:
+            session_id = f"session_{uuid.uuid4().hex[:16]}"
+        
         # Initialize agent if needed
         if agent is None:
             if not initialize_agent():
                 return jsonify({'error': 'Agent initialization failed'}), 503
         
         # Process query with session support
-        logger.info(f"Processing query: {user_query} (customer: {customer_id}, session: {session_id})")
+        logger.info(f"Processing query: {user_query[:50]}... (customer: {customer_id}, session: {session_id})")
         response = agent.process_query(user_query, customer_id, session_id)
         
         return jsonify({

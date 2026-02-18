@@ -4,7 +4,11 @@ Tests session management, message storage, and retrieval.
 """
 
 import pytest
+import sys
+import os
 from datetime import datetime, timedelta
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from conversation_memory import ConversationMemory
 
 
@@ -14,11 +18,217 @@ class TestConversationMemory:
     
     def test_initialization(self):
         """Test ConversationMemory initialization."""
-        memory = ConversationMemory(max_messages=5, session_timeout_minutes=30)
+        memory = ConversationMemory(max_history=5, ttl_minutes=30)
         
-        assert memory.max_messages == 5
-        assert memory.session_timeout_minutes == 30
-        assert len(memory.sessions) == 0
+        assert memory.max_history == 5
+        assert memory.ttl_minutes == 30
+        assert len(memory.conversations) == 0
+        
+    def test_create_session(self):
+        """Test creating a new session."""
+        memory = ConversationMemory()
+        session_id = "test-session-1"
+        
+        session = memory.create_session(session_id, customer_id="CUST001")
+        
+        assert session_id in memory.conversations
+        assert session['customer_id'] == "CUST001"
+        assert 'created_at' in session
+        
+    def test_add_message(self):
+        """Test adding messages to conversation history."""
+        memory = ConversationMemory()
+        session_id = "test-session-2"
+        
+        memory.create_session(session_id)
+        memory.add_message(session_id, "user", "What is covered?")
+        memory.add_message(session_id, "assistant", "The policy covers hospitalization.")
+        
+        history = memory.get_history(session_id)
+        assert len(history) == 2
+        assert history[0]["role"] == "user"
+        assert history[1]["role"] == "assistant"
+        
+    def test_max_history_limit(self):
+        """Test that max_history limit is enforced."""
+        memory = ConversationMemory(max_history=3)
+        session_id = "test-session-3"
+        
+        memory.create_session(session_id)
+        
+        # Add 5 messages
+        for i in range(5):
+            memory.add_message(session_id, "user", f"Message {i}")
+        
+        history = memory.get_history(session_id)
+        # Should only keep last 3 messages
+        assert len(history) == 3
+        assert history[0]["content"] == "Message 2"
+        assert history[-1]["content"] == "Message 4"
+        
+    def test_get_empty_session(self):
+        """Test getting history for non-existent session."""
+        memory = ConversationMemory()
+        
+        history = memory.get_history("non-existent")
+        
+        assert history == []
+        
+    def test_clear_session(self):
+        """Test clearing a specific session."""
+        memory = ConversationMemory()
+        session_id = "test-session-4"
+        
+        memory.create_session(session_id)
+        memory.add_message(session_id, "user", "Message 1")
+        memory.add_message(session_id, "assistant", "Response 1")
+        
+        result = memory.clear_session(session_id)
+        assert result is True
+        
+        history = memory.get_history(session_id)
+        assert len(history) == 0
+        
+    def test_message_metadata(self):
+        """Test storing and retrieving message metadata."""
+        memory = ConversationMemory()
+        session_id = "test-session-5"
+        
+        memory.create_session(session_id)
+        metadata = {"intent": "hospital_finder", "confidence": 0.95}
+        memory.add_message(
+            session_id, 
+            "user", 
+            "Show hospitals", 
+            metadata=metadata
+        )
+        
+        history = memory.get_history(session_id)
+        assert history[0]["metadata"] == metadata
+        
+    def test_get_last_n_messages(self):
+        """Test retrieving only last N messages."""
+        memory = ConversationMemory(max_history=10)
+        session_id = "test-session-6"
+        
+        memory.create_session(session_id)
+        for i in range(10):
+            memory.add_message(session_id, "user", f"Message {i}")
+        
+        last_3 = memory.get_history(session_id, last_n=3)
+        
+        assert len(last_3) == 3
+        assert last_3[0]["content"] == "Message 7"
+        assert last_3[-1]["content"] == "Message 9"
+        
+    def test_get_session_metadata(self):
+        """Test getting session metadata."""
+        memory = ConversationMemory()
+        session_id = "test-session-7"
+        
+        memory.create_session(session_id, customer_id="CUST123")
+        metadata = memory.get_session_metadata(session_id)
+        
+        assert metadata is not None
+        assert metadata["customer_id"] == "CUST123"
+        assert "created_at" in metadata
+        
+    def test_get_context_string(self):
+        """Test generating context string from history."""
+        memory = ConversationMemory()
+        session_id = "test-session-8"
+        
+        memory.create_session(session_id)
+        memory.add_message(session_id, "user", "What is covered?")
+        memory.add_message(session_id, "assistant", "Hospitalization is covered.")
+        memory.add_message(session_id, "user", "What about waiting period?")
+        
+        context = memory.get_context_string(session_id, last_n=3)
+        
+        assert isinstance(context, str)
+        assert "What is covered?" in context
+        assert "Hospitalization" in context
+        
+    def test_get_active_sessions(self):
+        """Test getting list of all active sessions."""
+        memory = ConversationMemory()
+        
+        memory.create_session("session-1")
+        memory.create_session("session-2")
+        memory.create_session("session-3")
+        
+        session_ids = memory.get_active_sessions()
+        
+        assert len(session_ids) == 3
+        assert "session-1" in session_ids
+        
+    def test_get_stats(self):
+        """Test getting memory statistics."""
+        memory = ConversationMemory()
+        
+        memory.create_session("session-1")
+        memory.add_message("session-1", "user", "Query")
+        memory.add_message("session-1", "assistant", "Response")
+        
+        stats = memory.get_stats()
+        
+        assert "active_sessions" in stats
+        assert "total_messages" in stats
+        assert stats["active_sessions"] == 1
+        assert stats["total_messages"] == 2
+
+
+@pytest.mark.unit
+def test_memory_persistence():
+    """Test that memory can be persisted and loaded."""
+    import tempfile
+    import shutil
+    
+    # Create temp directory
+    temp_dir = tempfile.mkdtemp()
+    
+    try:
+        memory1 = ConversationMemory(persist_dir=temp_dir)
+        session_id = "persistent-session"
+        
+        memory1.create_session(session_id)
+        memory1.add_message(session_id, "user", "Test message")
+        memory1._persist_session(session_id)
+        
+        # Load in new instance
+        memory2 = ConversationMemory(persist_dir=temp_dir)
+        loaded = memory2.load_session(session_id)
+        
+        assert loaded is True
+        history = memory2.get_history(session_id)
+        assert len(history) == 1
+        assert history[0]["content"] == "Test message"
+        
+    finally:
+        # Cleanup
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+@pytest.mark.unit
+def test_cleanup_expired_sessions():
+    """Test that old sessions are cleaned up."""
+    memory = ConversationMemory(ttl_minutes=1)
+    session_id = "test-session-expired"
+    
+    memory.create_session(session_id)
+    
+    # Manually set old timestamp
+    if session_id in memory.conversations:
+        memory.conversations[session_id]["last_activity"] = (
+            datetime.now() - timedelta(minutes=5)
+        )
+    
+    # Trigger cleanup
+    memory.cleanup_expired_sessions()
+    
+    # Session should be removed
+    assert session_id not in memory.conversations
+
         
     def test_add_message(self):
         """Test adding a message to conversation history."""
