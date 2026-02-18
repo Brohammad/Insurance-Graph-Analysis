@@ -41,12 +41,15 @@ class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], operator.add]
     user_query: str
     customer_id: str
+    session_id: str
     intent: str
     confidence: float
+    needs_hybrid: bool
     parameters: dict
     cypher_query: str
     cypher_params: dict
     query_results: list
+    rag_results: list
     final_response: str
     error: str
     requires_escalation: bool
@@ -57,7 +60,14 @@ class MedAssistAgent:
     """LangGraph-based agentic workflow for healthcare insurance queries"""
     
     def __init__(self, enable_vector_store: bool = True, enable_memory: bool = True):
-        self.connector = None
+        # Initialize Neo4j connector
+        self.connector = Neo4jConnector()
+        try:
+            self.connector.connect(wait_time=5)
+        except Exception as e:
+            print(f"{Fore.YELLOW}⚠ Neo4j connection failed: {e}")
+            self.connector = None
+        
         self.llm = ChatGoogleGenerativeAI(
             model=LLM_MODEL,
             google_api_key=GOOGLE_API_KEY,
@@ -108,6 +118,7 @@ class MedAssistAgent:
         workflow.add_node("kg_executor", self.kg_executor_node)
         workflow.add_node("synthesizer", self.synthesizer_node)
         workflow.add_node("rag_fallback", self.rag_fallback_node)
+        workflow.add_node("hybrid", self.hybrid_node)
         workflow.add_node("escalation", self.escalation_node)
         
         # Set entry point
@@ -120,6 +131,7 @@ class MedAssistAgent:
             {
                 "query_planner": "query_planner",
                 "rag_fallback": "rag_fallback",
+                "hybrid": "hybrid",
                 "escalation": "escalation"
             }
         )
@@ -147,6 +159,7 @@ class MedAssistAgent:
         
         workflow.add_edge("synthesizer", END)
         workflow.add_edge("rag_fallback", END)
+        workflow.add_edge("hybrid", END)
         workflow.add_edge("escalation", END)
         
         return workflow.compile()
@@ -162,11 +175,26 @@ class MedAssistAgent:
         
         prompt = f"""You are an intent classifier for a healthcare insurance system.
 Analyze the user query and extract:
-1. Intent (one of: coverage_check, hospital_finder, claim_history, policy_utilization, medication_coverage, escalation, general_question, greeting)
-2. Required parameters
-3. Confidence score (0.0-1.0)
+1. Primary Intent (one of: coverage_check, hospital_finder, claim_history, policy_utilization, medication_coverage, escalation, general_question, greeting)
+2. Secondary Intent (if query needs both KG data AND policy information)
+3. Required parameters
+4. Confidence score (0.0-1.0)
 
-IMPORTANT: If the user explicitly asks to "escalate", "speak to agent", "talk to human", "connect me to representative", or similar requests for human assistance, classify as "escalation" with high confidence.
+INTENT CLASSIFICATION RULES:
+- "escalation": User explicitly asks to speak to agent/human
+- "coverage_check": Asks if treatment/condition is covered (needs KG if hospital/customer specified)
+- "hospital_finder": Asks for hospital list, discounts, or hospital details
+- "policy_utilization": General policy questions about coverage, limits, waiting periods (needs RAG)
+- "claim_history": Asks about past claims (needs KG + customer_id)
+- "medication_coverage": Asks about medication coverage (needs KG)
+
+HYBRID QUERY DETECTION:
+If query mentions BOTH policy details (coverage, waiting period, limits) AND specific entities (hospital, city, discount), set needs_hybrid=true.
+
+Examples of hybrid queries:
+- "What is the policy for diabetes in hospitals in Mumbai with 10% discount?" → needs_hybrid=true
+- "Is diabetes covered at Apollo Bangalore?" → needs_hybrid=false (specific hospital, use KG)
+- "What are the waiting periods for critical illness?" → needs_hybrid=false (general policy, use RAG)
 
 Schema Context:
 {self.schema_info}
@@ -178,6 +206,7 @@ Respond ONLY with valid JSON:
 {{
     "intent": "coverage_check|hospital_finder|claim_history|policy_utilization|medication_coverage|escalation|general_question|greeting",
     "confidence": 0.0-1.0,
+    "needs_hybrid": true|false,
     "parameters": {{
         "treatment_code": "E11|I10|M17|etc or null",
         "treatment_name": "extracted name or null",
@@ -199,9 +228,11 @@ Respond ONLY with valid JSON:
             state["intent"] = result["intent"]
             state["confidence"] = result["confidence"]
             state["parameters"] = result.get("parameters", {})
+            state["needs_hybrid"] = result.get("needs_hybrid", False)
             state["messages"] = [AIMessage(content=f"Intent: {result['intent']}, Confidence: {result['confidence']:.2f}")]
             
-            print(f"{Fore.GREEN}[Classifier] Intent: {result['intent']} (confidence: {result['confidence']:.2f})")
+            hybrid_flag = " [HYBRID]" if state["needs_hybrid"] else ""
+            print(f"{Fore.GREEN}[Classifier] Intent: {result['intent']} (confidence: {result['confidence']:.2f}){hybrid_flag}")
             
         except Exception as e:
             print(f"{Fore.RED}[Classifier] Error: {e}")
@@ -441,6 +472,112 @@ Provide a helpful, accurate response:"""
         
         return state
     
+    def hybrid_node(self, state: AgentState) -> AgentState:
+        """Handle hybrid queries that need both KG and RAG"""
+        print(f"{Fore.MAGENTA}[Hybrid] Executing combined KG + RAG query...")
+        
+        user_query = state["user_query"]
+        intent = state["intent"]
+        parameters = state["parameters"]
+        
+        # Step 1: Execute Knowledge Graph query for structured data
+        print(f"{Fore.CYAN}[Hybrid] Step 1: Querying Knowledge Graph...")
+        kg_results = []
+        
+        if not self.connector:
+            print(f"{Fore.YELLOW}[Hybrid] KG connector not available, skipping KG query")
+        else:
+            try:
+                # Generate and execute KG query
+                if intent == "hospital_finder":
+                    city = parameters.get('city', '')
+                    min_discount = parameters.get('min_discount', 0)
+                    
+                    if city and min_discount:
+                        cypher_query = f"""
+                        MATCH (h:Hospital)-[net:IN_NETWORK]-(p:Policy)
+                        WHERE toLower(h.city) = toLower($city) AND net.discount_pct >= $min_discount
+                        RETURN DISTINCT h.name as hospital, h.city as city, net.discount_pct as discount, 
+                               h.tier as tier, h.cashless_enabled as cashless
+                        ORDER BY net.discount_pct DESC
+                        """
+                        cypher_params = {"city": city, "min_discount": int(min_discount)}
+                        kg_results = self.connector.execute_query(cypher_query, cypher_params)
+                        print(f"{Fore.GREEN}[Hybrid] Found {len(kg_results)} hospitals from KG")
+            
+            except Exception as e:
+                print(f"{Fore.YELLOW}[Hybrid] KG query error: {e}")
+        
+        # Step 2: Execute RAG query for policy information
+        print(f"{Fore.CYAN}[Hybrid] Step 2: Searching policy documents...")
+        rag_context = ""
+        
+        if self.vector_store:
+            try:
+                # Extract policy-related keywords from query
+                policy_query = user_query
+                if "policy" not in user_query.lower():
+                    # Add context for better RAG search
+                    treatment = parameters.get('treatment_name', '')
+                    if treatment:
+                        policy_query = f"What is the coverage policy for {treatment}?"
+                
+                rag_results = self.vector_store.search(policy_query, n_results=2)
+                
+                if rag_results:
+                    rag_context = "\n\n".join([
+                        f"{result['document']}"
+                        for result in rag_results
+                    ])
+                    print(f"{Fore.GREEN}[Hybrid] Found {len(rag_results)} relevant policy sections")
+            
+            except Exception as e:
+                print(f"{Fore.YELLOW}[Hybrid] RAG error: {e}")
+        
+        # Step 3: Synthesize combined response
+        print(f"{Fore.MAGENTA}[Hybrid] Step 3: Synthesizing combined response...")
+        
+        # Format KG results
+        kg_summary = ""
+        if kg_results:
+            kg_summary = f"\n\nNetwork Hospitals Found ({len(kg_results)}):\n"
+            for i, r in enumerate(kg_results[:5], 1):  # Limit to top 5
+                cashless = "✓ Cashless" if r.get('cashless', False) else "✗ No Cashless"
+                kg_summary += f"{i}. {r['hospital']} - {r['city']}\n"
+                kg_summary += f"   Tier: {r['tier']} | Discount: {r['discount']}% | {cashless}\n"
+        
+        # Create synthesis prompt
+        prompt = f"""You are a healthcare insurance assistant providing comprehensive answers.
+
+User Question: "{user_query}"
+
+Knowledge Graph Data (Network Hospitals):
+{kg_summary if kg_summary else "No specific hospital data found."}
+
+Policy Information:
+{rag_context if rag_context else "No specific policy details found."}
+
+Provide a comprehensive answer that:
+1. First addresses the policy coverage details (if available)
+2. Then lists the specific hospitals that match the criteria (if available)
+3. Combines both pieces of information naturally
+
+Be concise but complete. Format hospital lists clearly."""
+        
+        try:
+            response = self.llm.invoke([HumanMessage(content=prompt)])
+            state["final_response"] = response.content.strip()
+            state["query_results"] = kg_results
+            state["rag_results"] = rag_context
+            print(f"{Fore.GREEN}[Hybrid] Combined response generated successfully")
+        
+        except Exception as e:
+            print(f"{Fore.RED}[Hybrid] Error: {e}")
+            # Fallback to simple combination
+            state["final_response"] = f"{rag_context}\n\n{kg_summary}" if (rag_context or kg_summary) else "I couldn't find complete information for your query."
+        
+        return state
+    
     def escalation_node(self, state: AgentState) -> AgentState:
         """Handle escalation to human agent"""
         print(f"{Fore.YELLOW}[Escalation] Query requires human assistance")
@@ -464,11 +601,17 @@ Please let me know how you'd like to proceed."""
         """Route based on classification confidence"""
         confidence = state.get("confidence", 0)
         intent = state.get("intent", "")
+        needs_hybrid = state.get("needs_hybrid", False)
         
         # Handle explicit escalation requests
         if intent == "escalation":
             print(f"{Fore.YELLOW}[Router] Explicit escalation request, routing to escalation")
             return "escalation"
+        
+        # Handle hybrid queries (needs both KG and RAG)
+        if needs_hybrid:
+            print(f"{Fore.MAGENTA}[Router] Hybrid query detected, routing to hybrid node")
+            return "hybrid"
         
         if confidence < CONFIDENCE_THRESHOLD:
             print(f"{Fore.YELLOW}[Router] Low confidence, routing to RAG fallback")
