@@ -162,9 +162,11 @@ class MedAssistAgent:
         
         prompt = f"""You are an intent classifier for a healthcare insurance system.
 Analyze the user query and extract:
-1. Intent (one of: coverage_check, hospital_finder, claim_history, policy_utilization, medication_coverage, general_question, greeting)
+1. Intent (one of: coverage_check, hospital_finder, claim_history, policy_utilization, medication_coverage, escalation, general_question, greeting)
 2. Required parameters
 3. Confidence score (0.0-1.0)
+
+IMPORTANT: If the user explicitly asks to "escalate", "speak to agent", "talk to human", "connect me to representative", or similar requests for human assistance, classify as "escalation" with high confidence.
 
 Schema Context:
 {self.schema_info}
@@ -174,7 +176,7 @@ Customer ID: {customer_id or "Not provided"}
 
 Respond ONLY with valid JSON:
 {{
-    "intent": "coverage_check|hospital_finder|claim_history|policy_utilization|medication_coverage|general_question|greeting",
+    "intent": "coverage_check|hospital_finder|claim_history|policy_utilization|medication_coverage|escalation|general_question|greeting",
     "confidence": 0.0-1.0,
     "parameters": {{
         "treatment_code": "E11|I10|M17|etc or null",
@@ -462,6 +464,11 @@ Please let me know how you'd like to proceed."""
         """Route based on classification confidence"""
         confidence = state.get("confidence", 0)
         intent = state.get("intent", "")
+        
+        # Handle explicit escalation requests
+        if intent == "escalation":
+            print(f"{Fore.YELLOW}[Router] Explicit escalation request, routing to escalation")
+            return "escalation"
         
         if confidence < CONFIDENCE_THRESHOLD:
             print(f"{Fore.YELLOW}[Router] Low confidence, routing to RAG fallback")
