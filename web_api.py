@@ -98,8 +98,8 @@ def query():
         if not request.json:
             return jsonify({'error': 'Request must be JSON'}), 400
         
-        user_query = request.json.get('query', '').strip()
-        customer_id = request.json.get('customer_id', '').strip() or None
+        user_query = (request.json.get('query') or '').strip()
+        customer_id = (request.json.get('customer_id') or '').strip() or None
         
         if not user_query:
             return jsonify({'error': 'Query is required'}), 400
