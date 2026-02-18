@@ -44,6 +44,16 @@ PROJECT_INFO = f"""
 
 {Fore.YELLOW}🚀 QUICK START COMMANDS{Fore.RESET}
   
+  {Fore.GREEN}🤖 NEW: AI Chatbot (Recommended):{Fore.RESET}
+     python chatbot.py
+     
+     Features:
+     • Natural language conversations
+     • Ask questions in plain English
+     • Intelligent intent detection
+     • Zero hallucination - all answers from KG
+     • Personalized for your customer ID
+  
   {Fore.GREEN}1. Initialize Database (First Time Setup):{Fore.RESET}
      python ingest.py
      
