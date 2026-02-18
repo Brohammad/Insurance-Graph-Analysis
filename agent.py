@@ -488,22 +488,35 @@ Provide a helpful, accurate response:"""
             print(f"{Fore.YELLOW}[Hybrid] KG connector not available, skipping KG query")
         else:
             try:
-                # Generate and execute KG query
-                if intent == "hospital_finder":
-                    city = parameters.get('city', '')
-                    min_discount = parameters.get('min_discount', 0)
-                    
-                    if city and min_discount:
+                # Generate and execute KG query based on intent
+                city = parameters.get('city', '')
+                min_discount = parameters.get('min_discount', 0)
+                
+                if intent in ["hospital_finder", "coverage_check", "policy_utilization"] and city:
+                    # Query for hospitals in specified city with optional discount filter
+                    if min_discount:
                         cypher_query = f"""
                         MATCH (h:Hospital)-[net:IN_NETWORK]-(p:Policy)
                         WHERE toLower(h.city) = toLower($city) AND net.discount_pct >= $min_discount
                         RETURN DISTINCT h.name as hospital, h.city as city, net.discount_pct as discount, 
                                h.tier as tier, h.cashless_enabled as cashless
                         ORDER BY net.discount_pct DESC
+                        LIMIT 10
                         """
                         cypher_params = {"city": city, "min_discount": int(min_discount)}
-                        kg_results = self.connector.execute_query(cypher_query, cypher_params)
-                        print(f"{Fore.GREEN}[Hybrid] Found {len(kg_results)} hospitals from KG")
+                    else:
+                        cypher_query = f"""
+                        MATCH (h:Hospital)-[net:IN_NETWORK]-(p:Policy)
+                        WHERE toLower(h.city) = toLower($city)
+                        RETURN DISTINCT h.name as hospital, h.city as city, net.discount_pct as discount, 
+                               h.tier as tier, h.cashless_enabled as cashless
+                        ORDER BY net.discount_pct DESC
+                        LIMIT 10
+                        """
+                        cypher_params = {"city": city}
+                    
+                    kg_results = self.connector.execute_query(cypher_query, cypher_params)
+                    print(f"{Fore.GREEN}[Hybrid] Found {len(kg_results)} hospitals in {city} from KG")
             
             except Exception as e:
                 print(f"{Fore.YELLOW}[Hybrid] KG query error: {e}")
